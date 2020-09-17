@@ -1761,7 +1761,7 @@ static Class realizeClass(Class cls)
 
     // fixme verify class is not in an un-dlopened part of the shared cache?
 
-    ro = (const class_ro_t *)cls->data();
+    ro = (const class_ro_t *)cls->data();// 把存储在bits中的class_ro_t取出
     if (ro->flags & RO_FUTURE) {
         // This was a future class. rw data is already allocated.
         rw = cls->data();
@@ -1769,10 +1769,10 @@ static Class realizeClass(Class cls)
         cls->changeInfo(RW_REALIZED|RW_REALIZING, RW_FUTURE);
     } else {
         // Normal class. Allocate writeable class data.
-        rw = (class_rw_t *)calloc(sizeof(class_rw_t), 1);
-        rw->ro = ro;
+        rw = (class_rw_t *)calloc(sizeof(class_rw_t), 1);// 创建class_rw_t
+        rw->ro = ro;// 把ro赋值给rw，成为rw的一个成员变量
         rw->flags = RW_REALIZED|RW_REALIZING;
-        cls->setData(rw);
+        cls->setData(rw);// 最后把rw设置给bits，替代之前bits中存储的ro
     }
 
     isMeta = ro->flags & RO_META;
@@ -1859,8 +1859,9 @@ static Class realizeClass(Class cls)
         addRootClass(cls);
     }
 
+    // 这时rw的method list、protocol list和property list也还是空的，需要在methodizeClass函数中进行赋值。
     // 初始化class_rw_t
-    methodizeClass(cls);
+    methodizeClass(cls);// 把ro的list取出来，然后赋值给rw。
 
     return cls;
 }

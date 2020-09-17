@@ -485,7 +485,7 @@ struct locstamped_category_list_t {
 #define FAST_HAS_DEFAULT_RR     (1UL<<1)
 // 类或父类需要初始化isa
 #define FAST_REQUIRES_RAW_ISA   (1UL<<2)
-// 数据段的指针
+// 数据段的指针 bits中的47-3位，对应class_rw_t指针
 #define FAST_DATA_MASK          0x00007ffffffffff8UL
 
 #else
@@ -1068,8 +1068,10 @@ public:
 struct objc_class : objc_object {
     // Class ISA;
     Class superclass;
-    cache_t cache;             // formerly cache pointer and vtable
-    class_data_bits_t bits;    // class_rw_t * plus custom rr/alloc flags
+    cache_t cache;             // formerly cache pointer and vtable // 已调用方法的缓存
+    class_data_bits_t bits;    // class_rw_t * plus custom rr/alloc flags // bit是objc_class的主角，存储了class_rw_t的地址，和一些基本操作。可以注意到，objc_class里的一些函数，内部都是通过bits实现的。
+    // 在编译后，class_data_bits_t指向的是一个class_ro_t的地址，这个结构体是不可变的（只读）。
+    // 在运行时；才会通过realizeClass函数将bits指向class_rw_t。在运行时动态修改也是对rw做的操作。
 
     class_rw_t *data() { 
         return bits.data();
