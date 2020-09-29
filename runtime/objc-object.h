@@ -222,11 +222,11 @@ objc_object::initIsa(Class cls, bool nonpointer, bool hasCxxDtor)
         newisa.has_cxx_dtor = hasCxxDtor;
         newisa.indexcls = (uintptr_t)cls->classArrayIndex();
 #else
-        newisa.bits = ISA_MAGIC_VALUE;
+        newisa.bits = ISA_MAGIC_VALUE;// nonpointer和magic做初始化
         // isa.magic is part of ISA_MAGIC_VALUE
         // isa.nonpointer is part of ISA_MAGIC_VALUE
         newisa.has_cxx_dtor = hasCxxDtor;
-        newisa.shiftcls = (uintptr_t)cls >> 3;
+        newisa.shiftcls = (uintptr_t)cls >> 3;// 原类指针为了内存对齐，所以将最后三位用0填充了。在对shiftcls进行赋值是，对Class指针右移3位，前面不足补零。
 #endif
 
         // This write must be performed in a single store in some cases

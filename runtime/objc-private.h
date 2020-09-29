@@ -88,11 +88,12 @@ union isa_t
 
 # if __arm64__
 #   define ISA_MASK        0x0000000ffffffff8ULL
+    // 二进制：111111111111111111111111111111111000，与isa_t的结构体做与运算，正好是把shiftcls的地址取出来
 #   define ISA_MAGIC_MASK  0x000003f000000001ULL
 #   define ISA_MAGIC_VALUE 0x000001a000000001ULL
-    //二进制：11010000000000000000000000000000000000001
-    //补全二进制：23个零+11010000000000000000000000000000000000001
-    //可以看出，ISA_MAGIC_VALUE是用于对nonpointer和magic做初始化的。
+    // 二进制：11010000000000000000000000000000000000001
+    // 补全二进制：23个零+11010000000000000000000000000000000000001
+    // 可以看出，ISA_MAGIC_VALUE是用于对nonpointer和magic做初始化的。
     struct {
         uintptr_t nonpointer        : 1; // 是32位还是64位
         uintptr_t has_assoc         : 1; // 对象是否含有或者曾经含有关联引用，如果没有关联引用，可以更快的释放对象

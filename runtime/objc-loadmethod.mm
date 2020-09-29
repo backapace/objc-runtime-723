@@ -109,6 +109,7 @@ void add_category_to_loadable_list(Category cat)
                      _category_getClassName(cat), _category_getName(cat));
     }
     
+    // 如果已使用大小等于数组大小，对数组进行动态扩容
     if (loadable_categories_used == loadable_categories_allocated) {
         loadable_categories_allocated = loadable_categories_allocated*2 + 16;
         loadable_categories = (struct loadable_category *)
@@ -348,6 +349,7 @@ void call_load_methods(void)
     void *pool = objc_autoreleasePoolPush();
 
     do {
+        // 反复执行call_class_loads函数，知道数组中没有可执行的load方法
         // 1. Repeatedly call class +loads until there aren't any more
         while (loadable_classes_used > 0) {
             call_class_loads();

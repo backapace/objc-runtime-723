@@ -96,6 +96,7 @@
     return protocol_getName(self);
 }
 
+// Protocol重写了􏱚􏱛􏰰isEqual方法，内部不断查找其父类，判断是否􏱂􏱃􏰌􏱜􏱝􏱞􏱟􏱠􏱡􏱢􏱣􏱄􏰌􏱤􏱟􏰏􏱥Protocol􏰔􏱦􏱄􏰮的子类。
 - (BOOL)isEqual:other
 {
 #if __OBJC2__

@@ -2444,7 +2444,7 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
         ts.log("IMAGE TIMES: first time tasks");
     }
 
-    // 由编译器读取类列表，并将所有类添加到类的哈希表中，并且标记懒加载的类并初始化内存空间
+    //【1】 由编译器读取类列表，并将所有类添加到类的哈希表中，并且标记懒加载的类并初始化内存空间
     for (EACH_HEADER) {
         if (! mustReadClasses(hi)) {
             // Image is sufficiently optimized that we need not call readClass()
@@ -2477,7 +2477,7 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
 
     ts.log("IMAGE TIMES: discover classes");
     
-    // 将未映射Class和Super Class重映射，被remap的类都是非懒加载的类
+    //【2】 将未映射Class和Super Class重映射，被remap的类都是非懒加载的类
     if (!noClassesRemapped()) {
         for (EACH_HEADER) {
             // 重映射Class，注意是从_getObjc2ClassRefs函数中取出类的引用
@@ -2495,7 +2495,7 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
 
     ts.log("IMAGE TIMES: remap classes");
 
-    // 将所有SEL都注册到哈希表中，是另外一张哈希表
+    //【3】 将所有SEL都注册到哈希表中，是另外一张哈希表
     static size_t UnfixedSelectors;
     sel_lock();
     for (EACH_HEADER) {
@@ -2517,7 +2517,7 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
     ts.log("IMAGE TIMES: fix up selector references");
 
 #if SUPPORT_FIXUP
-    // 修复旧的函数指针调用遗留
+    //【4】 修复旧的函数指针调用遗留
     for (EACH_HEADER) {
         message_ref_t *refs = _getObjc2MessageRefs(hi, &count);
         if (count == 0) continue;
@@ -2535,7 +2535,7 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
     ts.log("IMAGE TIMES: fix up objc_msgSend_fixup");
 #endif
 
-    // 遍历所有协议列表，并且将协议列表加载到Protocol的哈希表中
+    //【5】 遍历所有协议列表，并且将协议列表加载到Protocol的哈希表中
     for (EACH_HEADER) {
         extern objc_class OBJC_CLASS_$_Protocol;
         // cls = Protocol类，所有协议和对象的结构体都类似，isa都对应Protocol类
@@ -2556,6 +2556,7 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
 
     ts.log("IMAGE TIMES: discover protocols");
     
+    //【6】对所有的Protocol做重映射
     // 修复协议列表引用，优化后的images可能是正确的，但是并不确定
     for (EACH_HEADER) {
         // 需要注意到是，下面的函数是_getObjc2ProtocolRefs，和上面的_getObjc2ProtocolList不一样
@@ -2567,7 +2568,7 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
 
     ts.log("IMAGE TIMES: fix up @protocol references");
 
-    // 实现非懒加载的类，对于load方法和静态实例变量
+    //【7】 实现非懒加载的类，对于load方法和静态实例变量
     for (EACH_HEADER) {
         classref_t *classlist = 
             _getObjc2NonlazyClassList(hi, &count);
@@ -2598,7 +2599,7 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
 
     ts.log("IMAGE TIMES: realize non-lazy classes");
 
-    // 遍历resolvedFutureClasses数组，实现所有懒加载的类
+    //【8】 遍历resolvedFutureClasses数组，实现所有懒加载的类
     if (resolvedFutureClasses) {
         for (i = 0; i < resolvedFutureClassCount; i++) {
             // 实现懒加载的类
@@ -2610,7 +2611,7 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
 
     ts.log("IMAGE TIMES: realize future classes");
 
-    // 发现和处理所有Category
+    //【9】 发现和处理所有Category
     for (EACH_HEADER) {
         // 外部循环遍历找到当前类，查找类对应的Category数组
         category_t **catlist = 
@@ -2676,6 +2677,7 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
 
     // +load handled by prepare_load_methods()
 
+    //【9】初始化所有未初始化的类
     // 初始化从磁盘中加载的所有类，发现Category必须是最后执行的
     // 从runtime objc4-532版本源码来看，DebugNonFragileIvars字段一直是-1，所以不会进入这个方法中
     if (DebugNonFragileIvars) {
