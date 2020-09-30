@@ -4731,7 +4731,7 @@ IMP lookUpImpOrForward(Class cls, SEL sel, id inst,
  retry:    
     runtimeLock.assertReading();
 
-    // 尝试获取这个类的缓存
+    // 尝试获取这个方法的缓存
     imp = cache_getImp(cls, sel);
     if (imp) goto done;
 

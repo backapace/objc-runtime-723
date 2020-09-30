@@ -202,6 +202,7 @@ static void call_class_loads(void)
         if (PrintLoading) {
             _objc_inform("LOAD: +[%s load]\n", cls->nameForLogging());
         }
+        // 通过函数指针直接调用，而不是走消息发送objc_msgSend
         (*load_method)(cls, SEL_load);
     }
     
