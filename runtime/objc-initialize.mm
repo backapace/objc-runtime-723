@@ -537,7 +537,8 @@ void _class_initialize(Class cls)
         @try
 #endif
         {
-            // 通过objc_msgSend()函数调用initialize方法。这也是为什么Category中定义的initialize方法会覆盖（或者说隐藏）原方法而不是像load方法一样都可以调用的原因吧。
+            // 通过objc_msgSend()函数调用initialize方法。
+            // 这也是为什么Category中定义的initialize方法会覆盖（或者说隐藏）原方法而不是像load方法一样都可以调用的原因吧。
             callInitialize(cls);
 
             if (PrintInitializing) {

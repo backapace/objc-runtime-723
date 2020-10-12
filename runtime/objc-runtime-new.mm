@@ -2612,6 +2612,7 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
     ts.log("IMAGE TIMES: realize future classes");
 
     //【9】 发现和处理所有Category
+    // Category方法后于类方法添加，在进行方法调用时，会优先遍历Category的方法，并且后面被添加到项目里的Category，会被优先调用。这就是类方法（load方法除外）被Category方法“覆盖”的原因。
     for (EACH_HEADER) {
         // 外部循环遍历找到当前类，查找类对应的Category数组
         category_t **catlist = 
@@ -4765,7 +4766,7 @@ IMP lookUpImpOrForward(Class cls, SEL sel, id inst,
             if (imp) {
                 if (imp != (IMP)_objc_msgForward_impcache) {
                     // Found the method in a superclass. Cache it in this class.
-                    // 如果发现父类的方法，并且不再缓存中，在下面的函数中缓存方法
+                    // 如果发现父类的方法，并且不在缓存中，在下面的函数中缓存方法
                     log_and_fill_cache(cls, imp, sel, inst, curClass);
                     goto done;
                 }
