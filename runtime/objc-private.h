@@ -95,7 +95,7 @@ union isa_t
     // 补全二进制：23个零+11010000000000000000000000000000000000001
     // 可以看出，ISA_MAGIC_VALUE是用于对nonpointer和magic做初始化的。
     struct {
-        uintptr_t nonpointer        : 1; // 是32位还是64位
+        uintptr_t nonpointer        : 1; // 是32位还是64位。0表示iPhone迁移到 64 位系统之前时 isa 的类型，isa 是一个指向 cls 的指针。1表示当前 isa 不是指针，但是其中也有 cls 的信息，只是其中关于类的指针都是保存在 shiftcls 中。
         uintptr_t has_assoc         : 1; // 对象是否含有或者曾经含有关联引用，如果没有关联引用，可以更快的释放对象
         uintptr_t has_cxx_dtor      : 1; // 表示是否有C++析构函数或OC的析构函数
         uintptr_t shiftcls          : 33; // 对象指向类的内存地址，也就是isa指向的地址 // MACH_VM_MAX_ADDRESS 0x1000000000
