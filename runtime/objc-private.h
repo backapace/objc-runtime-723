@@ -102,8 +102,8 @@ union isa_t
         uintptr_t magic             : 6; // 对象是否初始化完成
         uintptr_t weakly_referenced : 1; // 对象是否被弱引用或曾经被弱引用
         uintptr_t deallocating      : 1; // 对象是否被释放中
-        uintptr_t has_sidetable_rc  : 1; // 对象的引用计数太大，是否超出存储区域
-        uintptr_t extra_rc          : 19; // 对象引用计数
+        uintptr_t has_sidetable_rc  : 1; // 当对象引用技术大于 10 时，则需要借用该变量存储进位。
+        uintptr_t extra_rc          : 19; // 表示该对象的引用计数值，实际上是引用计数值减 1， 例如，如果对象的引用计数为 10，那么 extra_rc 为 9。如果引用计数大于 10， 则需要使用到上面的 has_sidetable_rc。
 #       define RC_ONE   (1ULL<<45)
 #       define RC_HALF  (1ULL<<18)
     };
