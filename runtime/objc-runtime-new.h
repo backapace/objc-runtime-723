@@ -51,11 +51,11 @@ public:
 // 方法缓存结构体
 struct cache_t {
     // 存储被缓存方法的哈希表
-    struct bucket_t *_buckets;
-    // 占用的总大小
-    mask_t _mask;
-    // 已使用大小
-    mask_t _occupied;
+    struct bucket_t *_buckets;//8字节
+    // 占用的总大小，等于数组的大小-1
+    mask_t _mask;//4字节
+    // 已使用大小，表示的是已经存取的方法的个数
+    mask_t _occupied;//4字节
 
 public:
     struct bucket_t *buckets();
@@ -539,13 +539,13 @@ struct class_ro_t {
     const uint8_t * ivarLayout;
     
     const char * name;
-    method_list_t * baseMethodList;
-    protocol_list_t * baseProtocols;
-    const ivar_list_t * ivars;
+    method_list_t * baseMethodList;// 方法列表
+    protocol_list_t * baseProtocols;// 协议列表
+    const ivar_list_t * ivars;// 变量列表
     
     // weak修饰的ivars
     const uint8_t * weakIvarLayout;
-    property_list_t *baseProperties;
+    property_list_t *baseProperties;// 属性列表
 
     method_list_t *baseMethods() const {
         return baseMethodList;
@@ -1066,10 +1066,11 @@ public:
 
 
 struct objc_class : objc_object {
-    // Class ISA;
-    Class superclass;
-    cache_t cache;             // formerly cache pointer and vtable // 已调用方法的缓存
-    class_data_bits_t bits;    // class_rw_t * plus custom rr/alloc flags // bit是objc_class的主角，存储了class_rw_t的地址，和一些基本操作。可以注意到，objc_class里的一些函数，内部都是通过bits实现的。
+    // Class ISA;//8字节
+    Class superclass;//8字节
+    cache_t cache;             // formerly cache pointer and vtable // 已调用方法的缓存，16字节
+    class_data_bits_t bits;    // class_rw_t * plus custom rr/alloc flags // bit是objc_class的主角，存储了class_rw_t的地址，和一些基本操作。将cls的地址偏移32个字节即0x20便是bits的地址。
+    // 可以注意到，objc_class里的一些函数，内部都是通过bits实现的。
     // 在编译后，class_data_bits_t指向的是一个class_ro_t的地址，这个结构体是不可变的（只读）。
     // 在运行时；才会通过realizeClass函数将bits指向class_rw_t。在运行时动态修改也是对rw做的操作。
 

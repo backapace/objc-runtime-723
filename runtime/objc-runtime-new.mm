@@ -1756,11 +1756,13 @@ static Class realizeClass(Class cls)
     bool isMeta;
 
     if (!cls) return nil;
+    // 如果类已经实现了，直接返回
     if (cls->isRealized()) return cls;
     assert(cls == remapClass(cls));
 
     // fixme verify class is not in an un-dlopened part of the shared cache?
-
+    
+    // 编译期间，cls->data指向的是class_ro_t结构体
     ro = (const class_ro_t *)cls->data();// 把存储在bits中的class_ro_t取出
     if (ro->flags & RO_FUTURE) {
         // This was a future class. rw data is already allocated.

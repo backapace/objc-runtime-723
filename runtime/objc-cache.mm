@@ -166,6 +166,7 @@ static inline mask_t cache_next(mask_t i, mask_t mask) {
 #define CACHE_END_MARKER 0
 static inline mask_t cache_next(mask_t i, mask_t mask) {
     return i ? i-1 : mask;
+    //cache_next方法其实就是i= i-1，回到do循环里面，相当于查找数据的上一个元素。当i=0的时候，i指向的是数组的首元素位置，重新将mask赋值给i，使其指向散列表最后一个元素，重新开始反向遍历数组。
 }
 
 #else
@@ -448,8 +449,8 @@ void cache_t::reallocate(mask_t oldCapacity, mask_t newCapacity)
 {
     bool freeOld = canBeFreed();
 
-    bucket_t *oldBuckets = buckets();
-    bucket_t *newBuckets = allocateBuckets(newCapacity);
+    bucket_t *oldBuckets = buckets();//获取现有的buckets
+    bucket_t *newBuckets = allocateBuckets(newCapacity);//开辟一个新的buckets
 
     // Cache's old contents are not propagated. 
     // This is thought to save cache memory at the cost of extra cache fills.
@@ -458,7 +459,7 @@ void cache_t::reallocate(mask_t oldCapacity, mask_t newCapacity)
     assert(newCapacity > 0);
     assert((uintptr_t)(mask_t)(newCapacity-1) == newCapacity-1);
 
-    setBucketsAndMask(newBuckets, newCapacity - 1);
+    setBucketsAndMask(newBuckets, newCapacity - 1);//重新设置buckets和mask，刚初始化时newCapacityC=INIT_CACHE_SIZE=4
     
     if (freeOld) {
         cache_collect_free(oldBuckets, oldCapacity);
@@ -500,10 +501,12 @@ bucket_t * cache_t::find(cache_key_t k, id receiver)
 
     bucket_t *b = buckets();
     mask_t m = mask();
-    mask_t begin = cache_hash(k, m);
+    mask_t begin = cache_hash(k, m);// 通过cache_hash函数【begin  = k & m】计算出key值 k 对应的 index值 begin，用来记录查询起始索引
     mask_t i = begin;
     do {
         if (b[i].key() == 0  ||  b[i].key() == k) {
+            //用这个i从散列表取值，如果取出来的bucket_t的 key = k，则查询成功，返回该bucket_t，
+            //如果key = 0，说明在索引i的位置上还没有缓存过方法，同样需要返回该bucket_t，用于中止缓存查询。
             return &b[i];
         }
     } while ((i = cache_next(i, m)) != begin);
@@ -518,8 +521,8 @@ void cache_t::expand()
 {
     cacheUpdateLock.assertLocked();
     
-    uint32_t oldCapacity = capacity();
-    uint32_t newCapacity = oldCapacity ? oldCapacity*2 : INIT_CACHE_SIZE;
+    uint32_t oldCapacity = capacity();// 拿到当前的容量
+    uint32_t newCapacity = oldCapacity ? oldCapacity*2 : INIT_CACHE_SIZE;// 扩容当前容量的2倍
 
     if ((uint32_t)(mask_t)newCapacity != newCapacity) {
         // mask overflow - can't grow further
@@ -527,7 +530,7 @@ void cache_t::expand()
         newCapacity = oldCapacity;
     }
 
-    reallocate(oldCapacity, newCapacity);
+    reallocate(oldCapacity, newCapacity);// 开辟新的buckets
 }
 
 
@@ -542,30 +545,35 @@ static void cache_fill_nolock(Class cls, SEL sel, IMP imp, id receiver)
     // before we grabbed the cacheUpdateLock.
     if (cache_getImp(cls, sel)) return;
 
-    cache_t *cache = getCache(cls);
-    cache_key_t key = getKey(sel);
+    cache_t *cache = getCache(cls);//拿到类中的cache
+    cache_key_t key = getKey(sel);//将sel转换为key
 
     // Use the cache as-is if it is less than 3/4 full
     mask_t newOccupied = cache->occupied() + 1;
     mask_t capacity = cache->capacity();
+    //判断cache是否初始化
     if (cache->isConstantEmptyCache()) {
         // Cache is read-only. Replace it.
+        //初始化cache
+        //cache尚未初始化，则会分配一个大小为4的数组，_mask赋值为3(=INIT_CACHE_SIZE-1，详见reallocate方法的实现)。
         cache->reallocate(capacity, capacity ?: INIT_CACHE_SIZE);
     }
     else if (newOccupied <= capacity / 4 * 3) {
         // Cache is less than 3/4 full. Use it as-is.
+        //如果缓存方法后的大小不大于_buckets容量的四分之三，则表示容量尚未饱和，可以继续缓存方法
     }
     else {
         // Cache is too full. Expand it.
-        cache->expand();
+        cache->expand();//cache扩容
+        //如果缓存方法后的大小超过_buckets容量的四分之三，则会扩容为原来的2倍，并放弃原有的缓存，新扩展的缓存为空
     }
 
     // Scan for the first unused slot and insert there.
     // There is guaranteed to be an empty slot because the 
     // minimum size is 4 and we resized at 3/4 full.
-    bucket_t *bucket = cache->find(key, receiver);
+    bucket_t *bucket = cache->find(key, receiver);//根据key查找
     if (bucket->key() == 0) cache->incrementOccupied();
-    bucket->set(key, imp);
+    bucket->set(key, imp);//添加方法到缓存
 }
 
 void cache_fill(Class cls, SEL sel, IMP imp, id receiver)
