@@ -746,7 +746,7 @@ LNilReceiver:
 	mov 	r1, r2			// selector
 .endif
 	mov	r2, r9			// class to search
-    // 2. 调用MethodTableLookup并在内部执行cache3函数(C函数)
+    // 2. 调用MethodTableLookup并在内部执行_class_lookupMethodAndLoadCache3函数(C函数)
 	blx	__class_lookupMethodAndLoadCache3
 	mov	r12, r0			// r12 = IMP
 	

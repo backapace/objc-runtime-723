@@ -4657,7 +4657,7 @@ log_and_fill_cache(Class cls, IMP imp, SEL sel, id receiver, Class implementer)
 **********************************************************************/
 IMP _class_lookupMethodAndLoadCache3(id obj, SEL sel, Class cls)
 {
-    // 3. 通过cache3内部调用lookUpImpOrForward函数
+    // 3. 通过cache3内部调用lookUpImpOrForward函数。obj-类的实例对象 sel-方法的名称 cls-类
     return lookUpImpOrForward(cls, sel, obj, 
                               YES/*initialize*/, NO/*cache*/, YES/*resolver*/);
 }
@@ -4734,9 +4734,11 @@ IMP lookUpImpOrForward(Class cls, SEL sel, id inst,
  retry:    
     runtimeLock.assertReading();
 
-    // 尝试获取这个方法的缓存
-    imp = cache_getImp(cls, sel);
-    if (imp) goto done;
+    // 尝试获取这个方法的缓存。
+    // 为了避免在多线程的情况下可能存在方法缓存慢于方法命中的情况，会再次去缓存中查找一次方法。
+    // 这里cache_getImp其实是汇编中_cache_getImp上层C代码映射。
+    imp = cache_getImp(cls, sel);// 重新走CacheLookup流程从缓存中查找
+    if (imp) goto done;// 如果在缓存中有查找到则直接goto done释放锁，返回imp，结束方法调用，否则会先从本类中开始查找方法。
 
     {
         // 如果没有从cache中查找到，则从方法列表中获取Method
@@ -4766,9 +4768,10 @@ IMP lookUpImpOrForward(Class cls, SEL sel, id inst,
             // 获取父类缓存的IMP
             imp = cache_getImp(curClass, sel);
             if (imp) {
+                //如果在缓存中有找到，则会先判断是否是消息转发的方法
                 if (imp != (IMP)_objc_msgForward_impcache) {
                     // Found the method in a superclass. Cache it in this class.
-                    // 如果发现父类的方法，并且不在缓存中，在下面的函数中缓存方法
+                    // 如果发现父类的方法，并且不在缓存中，则调用log_and_fill_cache进行方法的缓存，终止方法的查找并执行方法。
                     log_and_fill_cache(cls, imp, sel, inst, curClass);
                     goto done;
                 }
@@ -4776,6 +4779,7 @@ IMP lookUpImpOrForward(Class cls, SEL sel, id inst,
                     // Found a forward:: entry in a superclass.
                     // Stop searching, but don't cache yet; call method 
                     // resolver for this class first.
+                    //如果是消息转发的方法则会走消息转发的流程，终止方法的查找。
                     break;
                 }
             }
@@ -4793,7 +4797,7 @@ IMP lookUpImpOrForward(Class cls, SEL sel, id inst,
 
     // No implementation found. Try method resolver once.
 
-    // 如果没有找到，则尝试动态方法解析
+    // 如果在本类缓存、本类方法列表、父类缓存、父类方法列表中都未找到，则尝试走动态方法解析流程。
     if (resolver  &&  !triedResolver) {
         runtimeLock.unlockRead();
         _class_resolveMethod(cls, sel, inst);

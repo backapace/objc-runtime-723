@@ -231,7 +231,7 @@ LExit$0:
 .if $0 == GETIMP
 	b	LGetImpMiss
 .elseif $0 == NORMAL
-	b	__objc_msgSend_uncached
+	b	__objc_msgSend_uncached//走到JumpMiss来则表示在缓存中并没有找到对应的函数方法,则会跳到__objc_msgSend_uncached执行MethodTableLookup。
 .elseif $0 == LOOKUP
 	b	__objc_msgLookup_uncached
 .else
@@ -241,16 +241,21 @@ LExit$0:
 
 .macro CacheLookup
 	// x1 = SEL, x16 = isa
-	ldp	x10, x11, [x16, #CACHE]	// x10 = buckets, x11 = occupied|mask
-	and	w12, w1, w11		// x12 = _cmd & mask
-	add	x12, x10, x12, LSL #4	// x12 = buckets + ((_cmd & mask)<<4)
+    
+	ldp	x10, x11, [x16, #CACHE]	// x10 = buckets, x11 = occupied|mask //buckets是结构体指针，占用8字节，mask占4字节，occupied占4字节，因此x16偏移16字节后得到buckets存储在x10，x11存了mask和occupied,其中低32位表示mask，高32位表示occupied。
 
-	ldp	x9, x17, [x12]		// {x9, x17} = *bucket
-1:	cmp	x9, x1			// if (bucket->sel != _cmd)
-	b.ne	2f			//     scan more
+	and	w12, w1, w11		// x12 = _cmd & mask //w1表示的是SEL对应的key，将key和mask相与得到函数方法在buckets哈希表中的索引。
+
+	add	x12, x10, x12, LSL #4	// x12 = buckets + ((_cmd & mask)<<4) //x10是buckets的首地址，而bucket_t结构体占用16字节，所以buckets的首地址加上索引向左偏移4字节得到的值就是函数方法在缓存中的地址。因此x12就是函数方法对应的bucket地址。
+
+	ldp	x9, x17, [x12]		// {x9, x17} = *bucket //将bucket装载到x17和x9中，x17中存放imp，x9中存放key也就是sel。
+
+1:	cmp	x9, x1			// if (bucket->sel != _cmd) //将找到的sel和传入的sel进行比较
+	b.ne	2f			//     scan more //如果相同就表示已经找到了执行CacheHit，否则执行2继续查找
 	CacheHit $0			// call or return imp
 	
 2:	// not hit: x12 = not-hit bucket
+    //在这一步对buckets的首地址x10和我们找到的bucket的地址x12进行比较，如果不相等则查找前一个bucket，并跳回到1执行，否则跳到3执行。
 	CheckMiss $0			// miss if bucket->sel == 0
 	cmp	x12, x10		// wrap if bucket == buckets
 	b.eq	3f
@@ -258,6 +263,7 @@ LExit$0:
 	b	1b			// loop
 
 3:	// wrap: x12 = first bucket, w11 = mask
+    //在这里其实拿到的就是buckets中的第一个bucket，x12 = first bucket。继续往下执行。接下来的操作其实和上面的执行流程是一样的，唯一不同的是3执行的是JumpMiss。
 	add	x12, x12, w11, UXTW #4	// x12 = buckets+(mask<<4)
 
 	// Clone scanning loop to miss instead of hang when cache is corrupt.
@@ -304,9 +310,11 @@ _objc_debug_taggedpointer_ext_classes:
 	ENTRY _objc_msgSend
 	UNWIND _objc_msgSend, NoFrame
 	MESSENGER_START
-
+    //在这里判断p0是否是0，如果为0则表示传入的对象为nil，立即返回
 	cmp	x0, #0			// nil check and tagged pointer check
+    //b.le指令用来判断上面的cmp的值是否小于等于执行标号，否则直接往下走。如果p0<0,则表示传入的对象是tagged pointer
 	b.le	LNilOrTagged		//  (MSB tagged pointer looks negative)
+    //x0指向内存地址的值isa赋值给p13，然后通过GetClassFromIsa_p16拿到class的地址
 	ldr	x13, [x0]		// x13 = isa
 	and	x16, x13, #ISA_MASK	// x16 = class	
 LGetIsaDone:
@@ -449,7 +457,7 @@ LLookup_Nil:
 
 	// receiver and selector already in x0 and x1
 	mov	x2, x16
-	bl	__class_lookupMethodAndLoadCache3
+	bl	__class_lookupMethodAndLoadCache3 //MethodTableLookup中的这些操作其实是在从bits中的方法列表去找函数方法。最终跳到__class_lookupMethodAndLoadCache3去执行。从这里开始进入到方法的查找流程。__class_lookupMethodAndLoadCache3对应上层C实现的_class_lookupMethodAndLoadCache3方法，该方法定义在objc-runtime-new.mm中。
 
 	// imp in x0
 	mov	x17, x0
