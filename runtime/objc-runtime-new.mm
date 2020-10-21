@@ -4811,7 +4811,7 @@ IMP lookUpImpOrForward(Class cls, SEL sel, id inst,
     // No implementation found, and method resolver didn't help. 
     // Use forwarding.
 
-    // 如果没有IMP被发现，并且动态方法解析也没有处理，则进入消息转发阶段
+    // 如果没有找到对应IMP，也未做动态方法解析处理，这个时候就会走消息转发流程。
     imp = (IMP)_objc_msgForward_impcache;
     cache_fill(cls, sel, imp, inst);
 

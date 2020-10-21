@@ -636,11 +636,12 @@ static void _class_resolveInstanceMethod(Class cls, SEL sel, id inst)
 {
     if (! lookUpImpOrNil(cls->ISA(), SEL_resolveInstanceMethod, cls, 
                          NO/*initialize*/, YES/*cache*/, NO/*resolver*/)) 
-    {
+    {//在这里查找的是resolveInstanceMethod这样的一个系统约定的方法，这个方法在NSObject中有实现（+ (BOOL)resolveInstanceMethod:(SEL)sel;），而且是一个类方法，而类方法存储在元类中，这就是为什么传入元类而非当前类的原因。
         // Resolver not implemented.
         return;
     }
 
+    //接下来调用了objc_msgSend向当前类cls中发送了一个消息，如果消息发送成功则说明当前类中重写了NSObject的resolveInstanceMethod方法，再次调用lookUpImpOrForward方法重新执行查找方法实现的流程。
     BOOL (*msg)(Class, SEL, SEL) = (__typeof__(msg))objc_msgSend;
     bool resolved = msg(cls, SEL_resolveInstanceMethod, sel);
 
@@ -676,6 +677,7 @@ static void _class_resolveInstanceMethod(Class cls, SEL sel, id inst)
 **********************************************************************/
 void _class_resolveMethod(Class cls, SEL sel, id inst)
 {
+    //道对象方法是存储类中的，类方法存储在元类中，由此看这里的判断并不奇怪，用以区分对象方法和类方法的动态解析。
     if (! cls->isMetaClass()) {
         // try [cls resolveInstanceMethod:sel]
         _class_resolveInstanceMethod(cls, sel, inst);
