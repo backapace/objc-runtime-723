@@ -78,6 +78,14 @@ typedef void (*_dyld_objc_notify_unmapped)(const char* path, const struct mach_h
 // dyld will also call the "mapped" function.  Dyld will call the "init" function when dyld would be called
 // initializers in that image.  This is when objc calls any +load methods in that image.
 //
+/* 从注释的内容可得知：
+ 1、该方法只在objc运行期间中被使用；
+ 2、当objc镜像文件被映射、初始化、取消映射关系时注册处理程序；
+ 3、dyld将会通过一个包含objc-image-info的镜像文件数组来回调mapped方法；
+ 4、该函数方法被调用的时候，会调用mapped函数对已经加载的镜像文件处理;
+ 5、当dyld调用initializers的时候回调用init方法；
+ 
+ */
 void _dyld_objc_notify_register(_dyld_objc_notify_mapped    mapped,
                                 _dyld_objc_notify_init      init,
                                 _dyld_objc_notify_unmapped  unmapped);

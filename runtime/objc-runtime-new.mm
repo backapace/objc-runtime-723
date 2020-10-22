@@ -1146,7 +1146,7 @@ static Class popFutureNamedClass(const char *name)
 
     if (future_named_class_map) {
         cls = (Class)NXMapKeyFreeingRemove(future_named_class_map, name);
-        if (cls && NXCountMapTable(future_named_class_map) == 0) {
+        if (cls && NXCountMapTable(future_named_class_map) == 0) {//判断未来需要处理的类集合future_named_class_map是否为空
             NXFreeMapTable(future_named_class_map);
             future_named_class_map = nil;
         }
@@ -1579,6 +1579,7 @@ static void remapProtocolRef(protocol_t **protoref)
 {
     runtimeLock.assertLocked();
 
+    //从协议列表中获取同一内存地址的协议，和当前的协议进行比较，如果不同则进行替换
     protocol_t *newproto = remapProtocol((protocol_ref_t)*protoref);
     if (*protoref != newproto) {
         *protoref = newproto;
@@ -1775,6 +1776,7 @@ static Class realizeClass(Class cls)
         rw->ro = ro;// 把ro赋值给rw，成为rw的一个成员变量
         rw->flags = RW_REALIZED|RW_REALIZING;
         cls->setData(rw);// 最后把rw设置给bits，替代之前bits中存储的ro
+        //在这一步尚未有rw的赋值，还只是对rw进行初始化。赋值处理是最后通过methodizeClass函数进行的。
     }
 
     isMeta = ro->flags & RO_META;
@@ -1863,9 +1865,17 @@ static Class realizeClass(Class cls)
 
     // 这时rw的method list、protocol list和property list也还是空的，需要在methodizeClass函数中进行赋值。
     // 初始化class_rw_t
-    methodizeClass(cls);// 把ro的list取出来，然后赋值给rw。
+    methodizeClass(cls);// 把ro的list取出来，赋值给rw。
 
     return cls;
+    
+    /*
+     1、在realizeClass方法之前，class_data_bits_t *data 指向的是一个 class_ro_t * 指针。所以在class_rw_t中找不到类的方法、属性以及协议。
+     2、在realizeClass方法会通过methodizeClass方法将类的方法、属性、协议总class_ro_t中添加到class_rw_t中。
+     3、class_rw_t结构体中的ro是一个class_ro_t类型的常量结构体指针，所以在realizeClass方法之后ro中的内容便不可修改，我手动添加的方法也只是修改了class_rw_t中的方法列表中。
+     4、类的成员变量存储在class_ro_t结构体中，而不是class_rw_t结构体中。
+     5、类的类方法在类的元类中，对象方法才在本类中。
+     */
 }
 
 
@@ -2176,7 +2186,7 @@ Class readClass(Class cls, bool headerIsBundle, bool headerIsPreoptimized)
 {
     const char *mangledName = cls->mangledName();
     
-    // 没有父类
+    // 判断当前的类的父类中是否有丢失的weak-linked类，如果有则当前类的所有信息不可信，会将其添加到重映射表里面，映射为nil。
     if (missingWeakSuperclass(cls)) {
         // No superclass (probably weak-linked). 
         // Disavow any knowledge of this subclass.
@@ -2207,6 +2217,8 @@ Class readClass(Class cls, bool headerIsBundle, bool headerIsPreoptimized)
 #endif
 
     Class replacing = nil;
+    /*网友测试调试时（https://juejin.im/post/6844904068297523214 ）发现程序不会进入到这个判断内部，也就是说这个if判断条件在我们创建的类以及系统的类并不会成立，所以类的rw赋值初始化并不是在这里完成的。popFutureNamedClass方法其实判断未来需要处理的类集合future_named_class_map是否为空。
+     */
     if (Class newCls = popFutureNamedClass(mangledName)) {
         // This name was previously allocated as a future class.
         // Copy objc_class to future class's struct.
@@ -2463,8 +2475,11 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
         for (i = 0; i < count; i++) {
             // 数组中会取出OS_dispatch_queue_concurrent、OS_xpc_object、NSRunloop等系统类，例如CF、Fundation、libdispatch中的类。以及自己创建的类
             Class cls = (Class)classlist[i];
-            // 通过readClass函数获取处理后的新类，内部主要操作ro和rw结构体
+            // 通过readClass函数获取处理后的新类，内部主要操作ro和rw结构体。注意：类的rw赋值初始化并不是在这里边完成的，而是在realizeClass函数里。
             Class newCls = readClass(cls, headerIsBundle, headerIsPreoptimized);
+            /*
+             实际上在readClass方法里面的如果当前类是在未来需要处理的类，便会走入到popFutureNamedClass流程中去，程序会对当前的类进行处理后形成新的类返回，那么在回到_read_images方法之后的if判断条件自然是成立的，这里会初始化需要的内存空间，并将所有的未来需要处理的类添加到一个数组中。
+             */
 
             // 初始化所有懒加载的类需要的内存空间
             if (newCls != cls  &&  newCls) {
@@ -2485,7 +2500,7 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
             // 重映射Class，注意是从_getObjc2ClassRefs函数中取出类的引用
             Class *classrefs = _getObjc2ClassRefs(hi, &count);
             for (i = 0; i < count; i++) {
-                remapClassRef(&classrefs[i]);
+                remapClassRef(&classrefs[i]);//进行类的重映射
             }
             // 重映射父类
             classrefs = _getObjc2SuperRefs(hi, &count);
@@ -2505,8 +2520,9 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
 
         bool isBundle = hi->isBundle();
         // 取出的是字符串数组，例如首地址是"class"
-        SEL *sels = _getObjc2SelectorRefs(hi, &count);
+        SEL *sels = _getObjc2SelectorRefs(hi, &count);//拿到方法引用列表
         UnfixedSelectors += count;
+        //遍历列表调用sel_registerNameNoLock方法将方法插入到namedSelectors 哈希表中
         for (i = 0; i < count; i++) {
             // sel_cname函数内部就是将SEL强转为常量字符串
             const char *name = sel_cname(sels[i]);
@@ -2521,7 +2537,7 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
 #if SUPPORT_FIXUP
     //【4】 修复旧的函数指针调用遗留
     for (EACH_HEADER) {
-        message_ref_t *refs = _getObjc2MessageRefs(hi, &count);
+        message_ref_t *refs = _getObjc2MessageRefs(hi, &count);//获取消息的引用
         if (count == 0) continue;
 
         if (PrintVtables) {
@@ -2537,7 +2553,7 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
     ts.log("IMAGE TIMES: fix up objc_msgSend_fixup");
 #endif
 
-    //【5】 遍历所有协议列表，并且将协议列表加载到Protocol的哈希表中
+    //【5】 遍历所有协议列表，并将协议加载到Protocol的哈希表中
     for (EACH_HEADER) {
         extern objc_class OBJC_CLASS_$_Protocol;
         // cls = Protocol类，所有协议和对象的结构体都类似，isa都对应Protocol类
@@ -2548,7 +2564,7 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
         bool isPreoptimized = hi->isPreoptimized();
         bool isBundle = hi->isBundle();
 
-        // 从编译器中读取并初始化Protocol
+        // 从编译器中读取并初始化Protocol，再添加到protocol_map这个哈希表中
         protocol_t **protolist = _getObjc2ProtocolList(hi, &count);
         for (i = 0; i < count; i++) {
             readProtocol(protolist[i], cls, protocol_map, 
@@ -2571,9 +2587,12 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
     ts.log("IMAGE TIMES: fix up @protocol references");
 
     //【7】 实现非懒加载的类，对于load方法和静态实例变量
+    /*
+     苹果官方的解释说：要实现一个非懒加载的类，需要在类内部实现+load方法。那么我们就明白了实现了+load方法的类是非懒加载类，否则是懒加载类。
+     */
     for (EACH_HEADER) {
         classref_t *classlist = 
-            _getObjc2NonlazyClassList(hi, &count);
+            _getObjc2NonlazyClassList(hi, &count);//拿到所有的非懒加载类的集合
         for (i = 0; i < count; i++) {
             Class cls = remapClass(classlist[i]);
             if (!cls) continue;
@@ -2614,6 +2633,12 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
     ts.log("IMAGE TIMES: realize future classes");
 
     //【9】 发现和处理所有Category
+    /* category加载到类的过程中做了如下几个操作 */
+    /*
+     1、通过_getObjc2CategoryList拿到category的列表。
+     2、将category中的对象方法，协议以及属性添加到类中。
+     3、将category中的类方法、协议以及类属性添加到类的元类中。
+     */
     // Category方法后于类方法添加，在进行方法调用时，会优先遍历Category的方法，并且后面被添加到项目里的Category，会被优先调用。这就是类方法（load方法除外）被Category方法“覆盖”的原因。
     for (EACH_HEADER) {
         // 外部循环遍历找到当前类，查找类对应的Category数组
@@ -2656,7 +2681,7 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
             }
 
             // 这块和上面逻辑一样，区别在于这块是对Meta Class做操作，而上面则是对Class做操作
-            // 根据下面的逻辑，从代码的角度来说，是可以对原类添加Category的
+            // 根据下面的逻辑，从代码的角度来说，是可以对原类添加Category的。本质是将类方法添加到元类的方法列表中。
             if (cat->classMethods  ||  cat->protocols  
                 ||  (hasClassProperties && cat->_classProperties)) 
             {

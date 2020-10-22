@@ -136,7 +136,7 @@ static SEL search_builtins(const char *name)
     return nil;
 }
 
-// 将SEL注册到SEL哈希表中
+// 将SEL注册到SEL哈希表中：先在namedSelectors哈希表中查找是否已经存在该方法，如果存在则表明该方法已经在列表中了，否则就会执行插入操作
 static SEL __sel_registerName(const char *name, int lock, int copy) 
 {
     SEL result = 0;

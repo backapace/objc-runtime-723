@@ -527,7 +527,7 @@ struct locstamped_category_list_t {
 
 #endif
 
-
+//class_ro_t是在编译器就已经赋值的，主要存储类的实例变量、方法列表、协议列表等信息，是一个只读的结构。
 struct class_ro_t {
     uint32_t flags;
     uint32_t instanceStart;
@@ -696,6 +696,10 @@ class list_array_tt {
         }
     }
 
+    //attachLists方法其实是在原有的list基础上做的扩容操作，并且将新的数据装载在list的前面。
+    /*
+     所谓的分类中的方法覆盖类中的同名方法不过是一种假象，其实是两个方法同时存在，只是分类的方法在列表的前面，在消息发送查找方法的时候是顺序查找的，所有调用的是分类的方法。
+     */
     void attachLists(List* const * addedLists, uint32_t addedCount) {
         if (addedCount == 0) return;
 
@@ -801,7 +805,7 @@ class protocol_array_t :
     }
 };
 
-
+//与ro相对应的是rw,rw是一个可读可写的结构，存储的是类的属性列表、方法列表、协议列表等信息
 struct class_rw_t {
     // Be warned that Symbolication knows the layout of this structure.
     uint32_t flags;

@@ -240,13 +240,13 @@ void *NXMapInsert(NXMapTable *table, const void *key, const void *value) {
     
     // 如果同名，则将旧类换为新类
     if (isEqual(table, pair->key, key)) {
-	const void	*old = pair->value;
-	if (old != value) pair->value = value;/* avoid writing unless needed! */
-	return (void *)old;
+        const void	*old = pair->value;
+        if (old != value) pair->value = value;/* avoid writing unless needed! */
+        return (void *)old;
     } else if (table->count == numBuckets) {
-	// hash表满了，对hash表做重哈希，然后再次执行这个函数
-	_NXMapRehash(table);
-	return NXMapInsert(table, key, value);
+        // hash表满了，对hash表做重哈希，然后再次执行这个函数
+        _NXMapRehash(table);
+        return NXMapInsert(table, key, value);
     } else {
         // 解决hash表冲突，这里采用的是线性探测法，解决哈希表冲突
 	unsigned	index2 = index;

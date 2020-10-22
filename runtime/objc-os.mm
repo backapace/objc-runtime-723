@@ -574,6 +574,7 @@ map_images_nolock(unsigned mhCount, const char * const mhPaths[],
     }
 
     if (hCount > 0) {
+        //map_images方法在image加载到内存的时候会触发该方法的调用。在map_images方法的内部会调用map_images_nolock方法，map_images_nolock方法会调用_read_images方法，该方法是map_images的核心内容。
         _read_images(hList, hCount, totalClasses, unoptimizedTotalClasses);
     }
 
@@ -880,11 +881,11 @@ void _objc_init(void)
     initialized = true;
     
     // fixme defer initialization until an objc-using image is found?
-    environ_init();
-    tls_init();
-    static_init();
-    lock_init();
-    exception_init();
+    environ_init();//是对一系列的环境变量的初始化，在该方法的内部有一段打印环境变量的代码。
+    tls_init();//主要是对线程key的绑定。
+    static_init();//运行C++静态构造函数
+    lock_init();//是一个空的实现方法，猜测其方法的实现是在汇编完成的。
+    exception_init();//初始化了libobjc的异常处理系统，注册异常处理的回调，从而监控异常的处理。
 
     _dyld_objc_notify_register(&map_images, load_images, unmap_image);
 }
