@@ -2787,10 +2787,11 @@ static void schedule_class_load(Class cls)
 {
     if (!cls) return;
     assert(cls->isRealized());  // _read_images should realize
-    // 已经添加Class的load方法到调用列表中
+    // 若当前类的load方法已添加到调用列表，则直接返回
     if (cls->data()->flags & RW_LOADED) return;
 
     // 确保super已经被添加到load列表中，默认是整个继承者链的顺序
+    // 在执行add_class_to_loadable_list(cls)将当前类加入加载列表之前，会先把父类加入待加载的列表，保证父类在子类前调用 load 方法。
     schedule_class_load(cls->superclass);
     
     // 将IMP和Class添加到调用列表
@@ -2831,7 +2832,7 @@ void prepare_load_methods(const headerType *mhdr)
         // 忽略弱链接的类别
         if (!cls) continue;  // category for ignored weak-linked class
         // 实例化所属的类
-        realizeClass(cls);
+        realizeClass(cls);//如果主类是一个懒加载的类，而前面的分析我们得知这个时候的主类尚未加载到内存中来，分类却已经加载到内存中了，这样便会让分类失去了所属性，所以这里会将分类的主类初始化加载到内存中
         assert(cls->ISA()->isRealized());
         // 设置Category的调用列表
         add_category_to_loadable_list(cat);
@@ -4728,7 +4729,7 @@ IMP lookUpImpOrForward(Class cls, SEL sel, id inst,
 
     runtimeLock.read();
 
-    // 判断类是否已经被创建，如果没有被创建，则将类实例化
+    // 判断类是否已经被创建，如果没有被创建，则将类实例化。懒加载类是在类第一次消息发送的时候初始化加载到内存的。
     if (!cls->isRealized()) {
         // Drop the read-lock and acquire the write-lock.
         // realizeClass() checks isRealized() again to prevent

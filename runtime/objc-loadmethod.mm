@@ -229,6 +229,7 @@ static bool call_category_loads(void)
     bool new_categories_added = NO;
     
     // Detach current loadable list.
+    // 1. 获取当前可以加载的分类列表
     struct loadable_category *cats = loadable_categories;
     int used = loadable_categories_used;
     int allocated = loadable_categories_allocated;
@@ -245,6 +246,7 @@ static bool call_category_loads(void)
 
         cls = _category_getClass(cat);
         if (cls  &&  cls->isLoadable()) {
+            // 2. 如果当前类是可加载的 `cls  &&  cls->isLoadable()` 就会调用分类的 load 方法
             if (PrintLoading) {
                 _objc_inform("LOAD: +[%s(%s) load]\n", 
                              cls->nameForLogging(), 
@@ -256,6 +258,7 @@ static bool call_category_loads(void)
     }
 
     // Compact detached list (order-preserving)
+    // 3. 将所有加载过的分类移除 `loadable_categories` 列表
     shift = 0;
     for (i = 0; i < used; i++) {
         if (cats[i].cat) {
@@ -267,6 +270,7 @@ static bool call_category_loads(void)
     used -= shift;
 
     // Copy any new +load candidates from the new list to the detached list.
+    // 4. 为 `loadable_categories` 重新分配内存，并重新设置它的值
     new_categories_added = (loadable_categories_used > 0);
     for (i = 0; i < loadable_categories_used; i++) {
         if (used == allocated) {
